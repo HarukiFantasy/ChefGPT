@@ -20,8 +20,9 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
-GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
-OpenAI_redirectURI = "https://chat.openai.com/aip/g-4e89111e0545651f98621d5c78b25e5682a4bbbb/oauth/callback" 
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET") 
+OpenAI_redirectURI = os.getenv("OPENAI_REDIRECT_URI", "https://example.com/oauth/callback")
+
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -87,44 +88,6 @@ def github_callback(request: Request):
     state = request.query_params.get("state")
     if not code:
         return {"error": "No code provided"}
-
-    # GitHub 토큰 요청 (application/x-www-form-urlencoded로 보내야 함)
-    token_response = requests.post(
-        "https://github.com/login/oauth/access_token",
-        headers={"Accept": "application/json"},
-        data={  # ✅ 중요: data로 변경
-            "client_id": GITHUB_CLIENT_ID,
-            "client_secret": GITHUB_CLIENT_SECRET,
-            "code": code,
-            "redirect_uri": OpenAI_redirectURI,
-        },
-    )
-
-    token_data = token_response.json()
-    access_token = token_data.get("access_token")
-
-    if not access_token:
-        raise HTTPException(status_code=400, detail="GitHub access token not provided.")
-
-    # 유저 정보 요청
-    user_response = requests.get(
-        "https://api.github.com/user",
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-    user_data = user_response.json()
-    github_id = user_data.get('id')
-    email = user_data.get('email') or "no-email@example.com"
-    name = user_data.get('login') or "No Name"
-
-    # ✅ Supabase에 유저 정보 저장 (선택 사항, /token에만 할 수도 있음)
-    existing_user = supabase.table("users").select("*").eq("github_id", github_id).execute()
-    if not existing_user.data:
-        supabase.table("users").insert({
-            "github_id": github_id,
-            "email": email,
-            "name": name
-        }).execute()
-
     # CustomGPT로 리디렉션
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
     return RedirectResponse(redirect_url)
@@ -133,7 +96,11 @@ def github_callback(request: Request):
 
 # OAuth 토큰 요청 처리
 @app.post("/token", include_in_schema=False)
-async def handle_oauth_token(code: str = Form(...)):
+async def handle_oauth_token(
+    code: str = Form(...),
+    client_id: str = Form(...),
+    client_secret: str = Form(...)
+    ):
     token_url = "https://github.com/login/oauth/access_token"
     headers = {"Accept": "application/json"}
     payload = {
@@ -176,6 +143,17 @@ async def handle_oauth_token(code: str = Form(...)):
         "email": email,
         "name": name
     }
+
+
+@app.get("/recipes", response_model=list[Document])
+async def get_receipt(ingredient: str):
+    try:
+        docs = vector_store.similarity_search(ingredient, k=5)
+        return [{"page_content": doc.page_content} for doc in docs]
+    except Exception as e:
+        print("🔥 Error during recipe search:", str(e))
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 @app.post("/recipes/save")
