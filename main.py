@@ -1,12 +1,11 @@
-from dotenv import load_dotenv
-import requests
-import os
 from fastapi import FastAPI, Depends, HTTPException, Security, Request, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
+import requests
+import os
 from supabase import create_client
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
 from pinecone import Pinecone
 
@@ -14,6 +13,7 @@ from pinecone import Pinecone
 # 환경 설정
 # ==============================
 
+from dotenv import load_dotenv
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -21,14 +21,15 @@ SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
-OpenAI_redirectURI = "https://chat.openai.com/aip/g-4e89111e0545651f98621d5c78b25e5682a4bbbb/oauth/callback"
+OpenAI_redirectURI = "https://chat.openai.com/aip/g-4e89111e0545651f98621d5c78b25e5682a4bbbb/oauth/callback" 
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 pc = Pinecone(api_key=PINECONE_API_KEY)
+index_name = "recipes"
 embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-vector_store = PineconeVectorStore.from_existing_index("recipes", embeddings)
+vector_store = PineconeVectorStore.from_existing_index(index_name, embeddings)
 
 app = FastAPI(
     title="ChefGPT. The best provider of Indian Recipes in the world",
