@@ -3,7 +3,8 @@ import os, jwt
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec 
-from fastapi import FastAPI, Request, HTTPException, Header, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, Security
+from fastapi.security import HTTPBearer
 from fastapi.responses import JSONResponse
 from typing import List
 from pydantic import BaseModel
@@ -17,6 +18,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
+security = HTTPBearer()
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index_name = "recipes"
 # OpenAI Embedding (langchain)
@@ -98,20 +100,24 @@ class RecipeSaveRequest(BaseModel):
     recipe_detail: str
 
 # JWT 인증 및 유저 정보 추출
-def get_current_user(authorization: str = Header(...)):
-    if not authorization.startswith("Bearer "):
+def get_current_user(token: str = Security(security)):
+    try:
+        payload = jwt.decode(token.credentials, options={"verify_signature": False})  # 간소화 예시
+        return payload["sub"]  # Supabase의 유저 UUID
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
-    token = authorization.split(" ")[1]
-    payload = jwt.decode(token, options={"verify_signature": False})  # (간소화 예시)
-    return payload["sub"]  # 이게 바로 Supabase의 user_id (UUID)
+
 
 # 레시피 저장 API
 @app.post("/recipes/save")
-def save_recipe(request: RecipeSaveRequest, user_id: str = Depends(get_current_user)):
+def save_recipe(
+    request: dict, 
+    user_id: str = Depends(get_current_user)
+):
     supabase.table("favorite_recipes").insert({
-        "user_id": user_id,  # ✅ 로그인한 유저의 UUID
-        "recipe_id": request.recipe_id,
-        "recipe_name": request.recipe_name,
-        "recipe_detail": request.recipe_detail
+        "user_id": user_id,
+        "recipe_id": request["recipe_id"],
+        "recipe_name": request["recipe_name"],
+        "recipe_detail": request["recipe_detail"]
     }).execute()
     return {"message": "Recipe saved"}
