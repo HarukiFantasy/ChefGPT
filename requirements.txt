@@ -1,7 +1,7 @@
 langchain==0.1.14
 langchain_community==0.0.30
-pinecone>=3.0.0
-openai==1.12.0
+pinecone==5.4.2
+openai==0.28.1
 python-dotenv>=1.0.0
 aiohttp==3.11.6  # realtime 호환
 fastapi>=0.110.0

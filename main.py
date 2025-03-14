@@ -1,6 +1,8 @@
 from dotenv import load_dotenv
-import os, openai
-from pinecone import Pinecone 
+import os
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import Pinecone as PineconeVectorStore
+from pinecone import Pinecone, ServerlessSpec 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from typing import List
@@ -9,19 +11,17 @@ from pydantic import BaseModel
 # 환경변수 로드
 load_dotenv()
 
-# Pinecone 초기화
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index = pc.Index("recipes")
+index_name = "recipes"
+# OpenAI Embedding (langchain)
+embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+# Vector Store (langchain + Pinecone)
+vector_store = PineconeVectorStore.from_existing_index("recipes", embeddings)
 
-# OpenAI Embeddings
-# ValidationError: 'proxies' 문제는 최근 langchain_openai와 openai 패키지의 호환성 문제로 발생 -> 대안 : OpenAI 직접 사용 + Embeddings 직접 구현
-openai.api_key = os.getenv("OPENAI_API_KEY")
-def embed_query(query: str):
-    response = openai.embeddings.creat(input=query, model="text-embedding-ada-002")
-    return response.data[0].embedding
 
 # FastAPI 인스턴스
 RenderURL = "https://chefgpt-bdfc.onrender.com"
+
 app = FastAPI(
     title="ChefGPT. The best provider of Indian Recipes in the world",
     description="Give ChefGPT the name of an ingredient and it will give you multiple recipes to use that ingredient on in return.",
@@ -42,10 +42,9 @@ def root():
 # 유사 검색 API
 @app.get("/recipes", response_model=List[Document])
 async def get_receipt(request: Request, ingredient: str):
-    # 1. 임베딩 변환
-    query_vector = embed_query(ingredient)
-    # 2. Pinecone에서 유사 벡터 검색
-    result = index.query(vector=query_vector, top_k=5, include_metadata=True)
-    # 3. 결과 정제 (메타데이터에서 text 추출)
-    docs = [{"page_content": match["metadata"]["text"]} for match in result["matches"]]
-    return docs
+    try:
+        docs = vector_store.similarity_search(ingredient, k=5)
+        return [{"page_content": doc.page_content} for doc in docs]
+    except Exception as e:
+        print("🔥 Error during recipe search:", str(e))  # 로그로 남기기
+        return JSONResponse(content={"error": str(e)}, status_code=500)
