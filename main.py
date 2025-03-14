@@ -3,7 +3,7 @@ import os, jwt
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
 from pinecone import Pinecone, ServerlessSpec 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Header, Depends
 from fastapi.responses import JSONResponse
 from typing import List
 from pydantic import BaseModel
