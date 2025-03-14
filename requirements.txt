@@ -7,3 +7,4 @@ aiohttp==3.11.6  # realtime 호환
 fastapi>=0.110.0
 uvicorn>=0.23.0
 tiktoken==0.5.1  # 예시, 안정적 최신 버전
+PyJWT==2.10.1    # Supabase JWT 검증 필수
