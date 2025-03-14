@@ -1,6 +1,6 @@
 from dotenv import load_dotenv
 import os
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from pinecone import Pinecone 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
