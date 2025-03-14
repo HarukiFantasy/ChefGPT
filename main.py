@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import requests
 import os
 from supabase import create_client
-from langchain_openai import OpenAIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
 from pinecone import Pinecone
 
