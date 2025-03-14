@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 from langchain_community.embeddings import OpenAIEmbeddings
-import pinecone 
+from pinecone import Pinecone 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from typing import List
@@ -11,8 +11,8 @@ from pydantic import BaseModel
 load_dotenv()
 
 # Pinecone 초기화
-pinecone.init(api_key=os.getenv("PINECONE_API_KEY"), environment="us-east-1")
-index = pinecone.Index("recipes")
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index = pc.Index("recipes")
 
 # OpenAI Embeddings
 embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
