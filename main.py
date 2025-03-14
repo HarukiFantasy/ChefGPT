@@ -13,11 +13,11 @@ load_dotenv()
 
 pinecone.init(
     api_key=os.getenv("PINECONE_API_KEY"),
-    environment=os.getenv("us-east-1") 
+    environment="us-east-1"
     )
-index = pinecone.Index(os.getenv("recipes"))
+index = pinecone.Index("recipes")
 
-embeddings = OpenAIEmbeddings()
+embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
 vectore_store = Pinecone(index=index, embedding=embeddings)
 RenderURL = "https://chefgpt-bdfc.onrender.com"
 
