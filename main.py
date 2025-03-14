@@ -81,12 +81,16 @@ def github_login(state: str):
     return RedirectResponse(github_auth_url)
 
 @app.post("/token", include_in_schema=False)
-async def handle_oauth_token(code: str = Form(...)):
+async def handle_oauth_token(
+    code: str = Form(...),
+    client_id: str = Form(...),
+    client_secret: str = Form(...)
+    ):
     token_url = "https://github.com/login/oauth/access_token"
     headers = {"Accept": "application/json"}
     payload = {
-        "client_id": GITHUB_CLIENT_ID,
-        "client_secret": GITHUB_CLIENT_SECRET,
+        "client_id": client_id,
+        "client_secret": client_secret,
         "code": code,
         "redirect_uri": OpenAI_redirectURI
     }
