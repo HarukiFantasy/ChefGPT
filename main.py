@@ -1,6 +1,5 @@
 from dotenv import load_dotenv
-import os
-from langchain_openai import OpenAIEmbeddings
+import os, openai
 from pinecone import Pinecone 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -15,7 +14,11 @@ pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("recipes")
 
 # OpenAI Embeddings
-embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPENAI_API_KEY"))
+# ValidationError: 'proxies' 문제는 최근 langchain_openai와 openai 패키지의 호환성 문제로 발생 -> 대안 : OpenAI 직접 사용 + Embeddings 직접 구현
+openai.api_key = os.getenv("OPENAI_API_KEY")
+def embed_query(query: str):
+    response = openai.embeddings.creat(input=query, model="text-embedding-ada-002")
+    return response.data[0].embedding
 
 # FastAPI 인스턴스
 RenderURL = "https://chefgpt-bdfc.onrender.com"
@@ -40,7 +43,7 @@ def root():
 @app.get("/recipes", response_model=List[Document])
 async def get_receipt(request: Request, ingredient: str):
     # 1. 임베딩 변환
-    query_vector = embeddings.embed_query(ingredient)
+    query_vector = embed_query(ingredient)
     # 2. Pinecone에서 유사 벡터 검색
     result = index.query(vector=query_vector, top_k=5, include_metadata=True)
     # 3. 결과 정제 (메타데이터에서 text 추출)
