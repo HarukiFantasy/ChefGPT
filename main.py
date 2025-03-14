@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, 
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from supabase import create_client
 from langchain_community.embeddings import OpenAIEmbeddings
