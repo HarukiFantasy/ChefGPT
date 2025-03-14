@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException, Security
+from fastapi import FastAPI, Depends, HTTPException, Security, Request, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 import requests
 import os
@@ -19,6 +19,9 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+OpenAI_redirectURI = "https://chat.openai.com/aip/g-15b4f03a96ffd5ea6c517fd95e400cd98ba8ee3d/oauth/callback"
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -70,23 +73,40 @@ class User(BaseModel):
 def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
-# ✅ GitHub 로그인 및 Supabase 유저 저장
-@app.get("/auth", response_model=User)
-def github_auth(authorization: HTTPAuthorizationCredentials = Security(bearer_scheme)):
-    github_token = authorization.credentials
-    user_info_resp = requests.get(
-        "https://api.github.com/user",
-        headers={"Authorization": f"Bearer {github_token}"}
+@app.get("/auth")
+def github_login(state: str):
+    github_auth_url = (
+        f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
-    if user_info_resp.status_code != 200:
-        raise HTTPException(status_code=403, detail="Invalid GitHub token")
-    user_info = user_info_resp.json()
-    github_id = user_info["id"]
-    email = user_info.get("email") or "no-email@example.com"
-    name = user_info.get("name") or "No Name"
+    return RedirectResponse(github_auth_url)
+
+@app.post("/token", include_in_schema=False)
+async def handle_oauth_token(code: str = Form(...)):
+    token_url = "https://github.com/login/oauth/access_token"
+    headers = {"Accept": "application/json"}
+    payload = {
+        "client_id": GITHUB_CLIENT_ID,
+        "client_secret": GITHUB_CLIENT_SECRET,
+        "code": code,
+        "redirect_uri": OpenAI_redirectURI
+    }
+    response = requests.post(token_url, headers=headers, data=payload)
+    token_data = response.json()
+    access_token = token_data.get("access_token")
+
+    if not access_token:
+        raise HTTPException(status_code=400, detail="GitHub access token not provided.")
+
+    user_response = requests.get(
+        "https://api.github.com/user",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    user_data = user_response.json()
+    github_id = user_data.get("id")
+    email = user_data.get("email") or "no-email@example.com"
+    name = user_data.get("login") or "No Name"
 
     existing_user = supabase.table("users").select("*").eq("github_id", github_id).execute()
-
     if not existing_user.data:
         supabase.table("users").insert({
             "github_id": github_id,
@@ -94,9 +114,13 @@ def github_auth(authorization: HTTPAuthorizationCredentials = Security(bearer_sc
             "name": name
         }).execute()
 
-    return User(github_id=str(github_id), email=email, name=name)
+    return {
+        "access_token": access_token,
+        "github_id": github_id,
+        "email": email,
+        "name": name
+    }
 
-# ✅ 레시피 검색
 @app.get("/recipes", response_model=list[Document])
 async def get_receipt(ingredient: str):
     try:
@@ -106,7 +130,6 @@ async def get_receipt(ingredient: str):
         print("🔥 Error during recipe search:", str(e))
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-# ✅ 레시피 저장
 @app.post("/recipes/save")
 def save_recipe(request: RecipeSaveRequest, authorization: HTTPAuthorizationCredentials = Security(bearer_scheme)):
     github_token = authorization.credentials
@@ -125,7 +148,6 @@ def save_recipe(request: RecipeSaveRequest, authorization: HTTPAuthorizationCred
     }).execute()
     return {"message": "Recipe saved successfully."}
 
-# ✅ 저장한 레시피 조회
 @app.get("/recipes/favorites", response_model=list[FavoriteRecipe])
 def get_favorite_recipes(authorization: HTTPAuthorizationCredentials = Security(bearer_scheme)):
     github_token = authorization.credentials
