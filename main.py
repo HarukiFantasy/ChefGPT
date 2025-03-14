@@ -13,7 +13,7 @@ pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index_name = "recipes"
 embeddings = OpenAIEmbeddings()
 vectore_store = Pinecone(index_name=index_name, embedding=embeddings)
-RenderURL = ""
+RenderURL = "https://chefgpt-bdfc.onrender.com"
 
 app = FastAPI(
     title="ChefGPT. The best provider of Indian Recipes in the world",
