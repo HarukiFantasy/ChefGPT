@@ -1,7 +1,7 @@
 langchain==0.1.14
 langchain_community==0.0.30
 langchain_openai==0.0.6
-pinecone-client==6.0.0  # 최신 직접 사용
+pinecone>=3.0.0
 openai==1.12.0
 python-dotenv>=1.0.0
 aiohttp==3.11.6  # realtime 호환
