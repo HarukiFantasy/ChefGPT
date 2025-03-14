@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
 import os
 from langchain_community.embeddings import OpenAIEmbeddings
-from langchain_community.vectorstores import Pinecone
+from langchain_pinecone import Pinecone
+import pinecone
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from typing import List
@@ -9,10 +10,15 @@ from pydantic import BaseModel
 
 
 load_dotenv()
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
-index_name = "recipes"
+
+pinecone.init(
+    api_key=os.getenv("PINECONE_API_KEY"),
+    environment=os.getenv("us-east-1") 
+    )
+index = pinecone.Index(os.getenv("recipes"))
+
 embeddings = OpenAIEmbeddings()
-vectore_store = Pinecone(index_name=index_name, embedding=embeddings)
+vectore_store = Pinecone(index=index, embedding=embeddings)
 RenderURL = "https://chefgpt-bdfc.onrender.com"
 
 app = FastAPI(
