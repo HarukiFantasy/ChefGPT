@@ -59,18 +59,33 @@ def github_auth():
     github_url = f"{SUPABASE_URL}/auth/v1/authorize?provider=github"
     return {"auth_url": github_url}
 
-@app.post("/save-user")
-def save_user(user_info: dict):
-    # user_info는 Supabase JWT를 통해 가져온 사용자 정보라 가정
-    user_id = user_info["sub"]  # JWT sub로부터 user_id
-    email = user_info["email"]
 
-    # users 테이블에 존재 여부 확인
+class UserInfo(BaseModel):
+    id: str
+    email: str
+    name: str
+    github_id: str
+
+
+@app.post("/save-user")
+def save_user(user_info: UserInfo):
+    # ✅ user_info는 Pydantic 모델이므로 .으로 접근
+    user_id = user_info.id
+    email = user_info.email
+    name = user_info.name
+    github_id = user_info.github_id
+
+    # ✅ users 테이블에 존재 여부 확인
     existing_user = supabase.table("users").select("*").eq("id", user_id).execute()
 
     if len(existing_user.data) == 0:
-        # 없으면 저장
-        supabase.table("users").insert({"id": user_id, "email": email}).execute()
+        # ✅ 없으면 새로 저장
+        supabase.table("users").insert({
+            "id": user_id,
+            "email": email,
+            "name": name,
+            "github_id": github_id
+        }).execute()
         return {"message": "User saved"}
     else:
         return {"message": "User already exists"}
