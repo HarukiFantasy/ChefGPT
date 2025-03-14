@@ -21,7 +21,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
-OpenAI_redirectURI = "https://chat.openai.com/aip/g-67cce1032df481919d74a01e29e4475b/oauth/callback"
+OpenAI_redirectURI = "https://chat.openai.com/aip/g-4e89111e0545651f98621d5c78b25e5682a4bbbb/oauth/callback"
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
