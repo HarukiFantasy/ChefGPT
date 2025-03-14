@@ -1,8 +1,9 @@
 langchain==0.1.14
-langchain_community==0.0.24
+langchain_community==0.0.30
 langchain_openai==0.0.6
-langchain_pinecone==0.0.3  # 호환 가능한 Pinecone 래퍼
-pinecone-client==3.2.2  # 호환 버전 (주의)
+pinecone-client==6.0.0  # 최신 직접 사용
 openai==1.12.0
 python-dotenv>=1.0.0
-aiohttp==3.9.5  # langchain-pinecone 호환 가능한 버전
+aiohttp==3.11.6  # realtime 호환
+fastapi>=0.110.0
+uvicorn>=0.23.0
