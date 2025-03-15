@@ -131,7 +131,6 @@ async def handle_oauth_token(
 
     # Supabase에 사용자 정보 삽입 (직접 API 호출)
     supabase_headers = {
-        "Authorization": f"Bearer {access_token}",  # GitHub access_token 사용
         "apikey": SUPABASE_ANON_KEY,               # Supabase anon key
         "Content-Type": "application/json"
     }
