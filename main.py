@@ -76,15 +76,11 @@ class User(BaseModel):
 def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
+states = {}
+
 @app.get("/auth")
 def github_login(state: str):
-    if not state:
-        state = str(uuid4())
-
-    # State 삽입
-    supabase.table("oauth_state").insert({"state": state}).execute()
-    time.sleep(6)
-
+    states[state] = True 
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
@@ -101,11 +97,6 @@ def github_callback(request: Request):
     if not code:
         return {"error": "No code provided"}
 
-    # 1. Supabase에서 state 검증
-    state_check = supabase.table("oauth_state").select("state").eq("state", state).execute()
-    if not state_check.data:
-        raise HTTPException(status_code=400, detail="Invalid state or expired")
-
     # 2. GitHub Access Token 요청
     token_response = requests.post(
         "https://github.com/login/oauth/access_token",
@@ -118,8 +109,8 @@ def github_callback(request: Request):
             "state":state
         },
     )
-    supabase.table("oauth_state").delete().eq("state", state).execute()
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"   # 최종 리디렉션 주소 (CustomGPT로 돌아가는 주소)
+    del states[state] 
     return RedirectResponse(redirect_url)
 
 
