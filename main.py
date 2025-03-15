@@ -75,17 +75,13 @@ class User(BaseModel):
 def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
-state_store = {}
-
 @app.get("/auth")
 def github_login(state: str = None):
     state = secrets.token_urlsafe(16)  # state 자동 생성
-    state_store[state] = True
+    supabase.table("oauth_state").insert({"state": state}).excute()
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
-    print(f"GitHub OAuth URL: {github_auth_url}")  # 디버깅용 출력
-
     return JSONResponse({
         "message": "Click the button below to log in with GitHub.",
         "login_url": github_auth_url
@@ -100,11 +96,14 @@ def github_callback(request: Request):
         return {"error": "No code provided"}
     if not state:
         return {"error": "State parameter missing"}
-    if not state or state not in state_store:
-        return JSONResponse({"error": "OAuth state invalid or not found"}, status_code=400)
-    print(f"Received state from GitHub: {state}")  # GitHub가 전달한 state 값
 
-    del state_store[state]  
+    # Supabase에서 state 확인
+    result = supabase.table("oauth_state").select("*").eq("state", state).execute()
+    if not result.data:
+        return JSONResponse({"error": "OAuth state invalid or not found"}, status_code=400)
+
+    # 유효한 state면 사용 후 삭제
+    supabase.table("oauth_state").delete().eq("state", state).execute()
 
     # CustomGPT로 리디렉션
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
