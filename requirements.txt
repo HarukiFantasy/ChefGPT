@@ -10,3 +10,4 @@ tiktoken==0.5.1  # 예시, 안정적 최신 버전
 PyJWT==2.10.1    # Supabase JWT 검증 필수
 supabase==2.13.0
 python-multipart==0.0.20
+redis==5.2.1
