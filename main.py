@@ -95,7 +95,7 @@ def github_callback(request: Request):
 
 
 # OAuth 토큰 요청 처리
-@app.post("/token", include_in_schema=False)
+@app.post("/token", response_class=JSONResponse, include_in_schema=False)
 async def handle_oauth_token(
     code: str = Form(...),
     client_id: str = Form(...),
@@ -111,6 +111,10 @@ async def handle_oauth_token(
     }
 
     response = requests.post(token_url, headers=headers, data=payload)
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to get access token from GitHub")
+
     token_data = response.json()
     access_token = token_data.get("access_token")
 
@@ -122,6 +126,9 @@ async def handle_oauth_token(
         "https://api.github.com/user",
         headers={"Authorization": f"Bearer {access_token}"}
     )
+    if user_response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to fetch user info from GitHub")
+
     user_data = user_response.json()
     github_id = str(user_data.get("id"))
     email = user_data.get("email") or "no-email@example.com"
