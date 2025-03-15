@@ -2,8 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Security, Request, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
-import requests
-import os, secrets
+import requests, os
 from supabase import create_client
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
@@ -77,8 +76,7 @@ def root():
 
 @app.get("/auth")
 def github_login(state: str = None):
-    state = secrets.token_urlsafe(16)  # state 자동 생성
-    supabase.table("oauth_state").insert({"state": state}).execute()
+    state = "my-fixed-state-1234"
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
@@ -96,14 +94,6 @@ def github_callback(request: Request):
         return {"error": "No code provided"}
     if not state:
         return {"error": "State parameter missing"}
-
-    # Supabase에서 state 확인
-    result = supabase.table("oauth_state").select("*").eq("state", state).execute()
-    if not result.data:
-        return JSONResponse({"error": "OAuth state invalid or not found"}, status_code=400)
-
-    # 유효한 state면 사용 후 삭제
-    supabase.table("oauth_state").delete().eq("state", state).execute()
 
     # CustomGPT로 리디렉션
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
