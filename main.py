@@ -93,13 +93,18 @@ def github_login(state: str = None):
 @app.get("/auth/callback")
 def github_callback(request: Request):
     code = request.query_params.get("code")
-    state = request.query_params.get("state")
+    state_received = request.query_params.get("state")
     if not code:
         return {"error": "No code provided"}
-    if not state:
+    if not state_received:
         return {"error": "State parameter missing"}
+    if redis_client.get(state_received) != "valid":
+        return {"error": "Invalid or expired state"}
+    # state가 유효하면 삭제 (재사용 방지)
+    redis_client.delete(state_received)
+
     # CustomGPT로 리디렉션
-    redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
+    redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state_received}"
     return RedirectResponse(redirect_url)
 
 
