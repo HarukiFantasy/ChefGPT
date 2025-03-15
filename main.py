@@ -17,8 +17,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET") 
 OpenAI_redirectURI = os.getenv("OPENAI_REDIRECT_URI")
