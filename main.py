@@ -67,34 +67,65 @@ class User(BaseModel):
     email: str
     name: str
 
-# ----------------------
-# 기본 엔드포인트
-# ----------------------
+# ==============================
+# API 엔드포인트
+# ==============================
+
 @app.get("/", response_class=JSONResponse)
 def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
-# ----------------------
-# GitHub OAuth
-# ----------------------
 @app.get("/auth")
 def github_login(state: str):
-    """사용자를 GitHub OAuth 인증 페이지로 리디렉션"""
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
-    return RedirectResponse(github_auth_url)
+    return JSONResponse({
+        "message": "Click the button below to log in with GitHub.",
+        "login_url": github_auth_url
+    })
+
 
 @app.get("/auth/callback")
 def github_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
+    if not code:
+        return {"error": "No code provided"}
+
+    token_response = requests.post(
+        "https://github.com/login/oauth/access_token",
+        headers={"Accept": "application/json"},
+        json={
+            "client_id": GITHUB_CLIENT_ID,
+            "client_secret": GITHUB_CLIENT_SECRET,
+            "code": code,
+            "redirect_uri": f"{Render_URL}/auth/callback",
+            "state":state
+        },
+    )
+
+    token_data = token_response.json()
+    access_token = token_data.get("access_token")
+    # 2. 유저 정보 요청
+    user_response = requests.get(
+        "https://api.github.com/user",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    user_data = user_response.json()
+    github_user = user_data.get('login')
+    # 3. CustomGPT로 리디렉션
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
     return RedirectResponse(redirect_url)
 
+
 # OAuth 토큰 요청 처리
-@app.post("/token", include_in_schema=False,)
-async def handle_oauth_token(code: str = Form(...)):
+@app.post("/token", response_class=JSONResponse, include_in_schema=False)
+async def handle_oauth_token(
+    code: str = Form(...),
+    client_id: str = Form(...),
+    client_secret: str = Form(...)
+    ):
     token_url = "https://github.com/login/oauth/access_token"
     headers = {"Accept": "application/json"}
     payload = {
@@ -103,22 +134,56 @@ async def handle_oauth_token(code: str = Form(...)):
         "code": code,
         "redirect_uri": OpenAI_redirectURI
     }
+
     response = requests.post(token_url, headers=headers, data=payload)
-    data = response.json()
+    token_data = response.json()
+    access_token = token_data.get("access_token")
+
+    if not access_token:
+        raise HTTPException(status_code=400, detail="GitHub access token not provided.")
+
 
     # GitHub 사용자 정보 가져오기
-    access_token = data.get("access_token")
     user_response = requests.get(
         "https://api.github.com/user",
         headers={"Authorization": f"Bearer {access_token}"}
     )
     user_data = user_response.json()
-    print("GitHub User Data:", user_data)
-    return {
-        "access_token": access_token,
-        "login": user_data.get("login"),
-        "email": user_data.get("email")
+    github_id = str(user_data.get("id"))
+    email = user_data.get("email") or "no-email@example.com"
+    name = user_data.get("login") or "No Name"
+
+    # Supabase에 사용자 정보 삽입 (직접 API 호출)
+    supabase_headers = {
+        "apikey": SUPABASE_ANON_KEY,               # Supabase anon key
+        "Content-Type": "application/json"
     }
+
+    supabase_payload = {
+        "github_id": github_id,
+        "email": email,
+        "name": name
+    }
+
+    supabase_insert_url = f"{SUPABASE_URL}/rest/v1/users"
+
+    supabase_response = requests.post(
+        supabase_insert_url,
+        headers=supabase_headers,
+        json=supabase_payload
+    )
+
+    # Supabase 삽입 실패 시 에러 반환
+    if supabase_response.status_code != 201:
+        raise HTTPException(status_code=supabase_response.status_code, detail=supabase_response.json())
+    
+    # 삽입 성공시 CustomGPT로 넘길 토큰 반환
+    return JSONResponse(content={
+        "access_token": access_token,
+        "github_id": github_id,
+        "email": email,
+        "name": name
+    })
 
 
 @app.get("/recipes", response_model=list[Document])
