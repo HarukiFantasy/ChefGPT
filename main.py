@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Security, Request, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
-import requests, os
+import requests, os, time
 from uuid import uuid4
 from supabase import create_client
 from langchain_community.embeddings import OpenAIEmbeddings
@@ -83,9 +83,16 @@ def github_login(state: str):
 
     # 1. State 삽입 & 삽입 직후 확인 (딜레이 대응)
     supabase.table("oauth_state").insert({"state": state}).execute()
-    confirm_result = supabase.table("oauth_state").select("state").eq("state", state).execute()
-    if not confirm_result.data:
-        raise HTTPException(status_code=500, detail="Failed to store OAuth state.")
+
+    # 2. 삽입 확인 (최대 5회)
+    for attempt in range(5):
+        confirm_result = supabase.table("oauth_state").select("state").eq("state", state).execute()
+        if confirm_result.data:
+            break
+        time.sleep(1.5)
+    else:
+        raise HTTPException(status_code=500, detail="Failed to store OAuth state after multiple attempts.")
+
 
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
