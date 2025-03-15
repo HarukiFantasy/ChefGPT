@@ -81,14 +81,11 @@ def github_login(state: str):
     if not state:
         state = str(uuid4())
 
-    # 1. State 삽입
-    insert_result = supabase.table("oauth_state").insert({"state": state}).execute()
-
-    # 2. 삽입 직후 확인 (딜레이 대응)
+    # 1. State 삽입 & 삽입 직후 확인 (딜레이 대응)
+    supabase.table("oauth_state").insert({"state": state}).execute()
     confirm_result = supabase.table("oauth_state").select("state").eq("state", state).execute()
     if not confirm_result.data:
         raise HTTPException(status_code=500, detail="Failed to store OAuth state.")
-
 
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
@@ -160,7 +157,6 @@ async def handle_oauth_token(
     if not access_token:
         raise HTTPException(status_code=400, detail="GitHub access token not provided.")
 
-
     # GitHub 사용자 정보 가져오기
     user_response = requests.get(
         "https://api.github.com/user",
@@ -172,30 +168,14 @@ async def handle_oauth_token(
     name = user_data.get("login") or "No Name"
 
     # Supabase에 사용자 정보 삽입 (직접 API 호출)
-    supabase_headers = {
-        "apikey": SUPABASE_ANON_KEY,               # Supabase anon key
-        "Content-Type": "application/json"
-    }
-
-    supabase_payload = {
-        "github_id": github_id,
-        "email": email,
-        "name": name
-    }
-
+    supabase_headers = {"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"}
+    supabase_payload = {"github_id": github_id, "email": email, "name": name}
     supabase_insert_url = f"{SUPABASE_URL}/rest/v1/users"
+    supabase_response = requests.post(supabase_insert_url, headers=supabase_headers, json=supabase_payload)
 
-    supabase_response = requests.post(
-        supabase_insert_url,
-        headers=supabase_headers,
-        json=supabase_payload
-    )
-
-    # Supabase 삽입 실패 시 에러 반환
     if supabase_response.status_code != 201:
         raise HTTPException(status_code=supabase_response.status_code, detail=supabase_response.json())
     
-    # 삽입 성공시 CustomGPT로 넘길 토큰 반환
     return JSONResponse(content={
         "access_token": access_token,
         "github_id": github_id,
@@ -212,7 +192,6 @@ async def get_receipt(ingredient: str):
     except Exception as e:
         print("🔥 Error during recipe search:", str(e))
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
 
 
 @app.post("/recipes/save")
