@@ -86,20 +86,6 @@ def github_login(state: str):
     })
 
 
-# @app.get("/auth/callback")
-# def github_callback(request: Request):
-#     code = request.query_params.get("code")
-#     state = request.query_params.get("state")
-#     if not code:
-#         return {"error": "No code provided"}
-#     if not state:
-#         return {"error": "State parameter missing"}
-
-#     # CustomGPT로 리디렉션
-#     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
-#     return RedirectResponse(redirect_url)
-
-
 @app.get("/auth/callback")
 def github_callback(request: Request):
     code = request.query_params.get("code")
@@ -115,6 +101,7 @@ def github_callback(request: Request):
             "client_secret": GITHUB_CLIENT_SECRET,
             "code": code,
             "redirect_uri": f"{Render_URL}/auth/callback",
+            "state":state
         },
     )
 
