@@ -81,18 +81,9 @@ def github_login(state: str):
     if not state:
         state = str(uuid4())
 
-    # 1. State 삽입 & 삽입 직후 확인 (딜레이 대응)
+    # State 삽입
     supabase.table("oauth_state").insert({"state": state}).execute()
-
-    # 2. 삽입 확인 (최대 5회)
-    for attempt in range(5):
-        confirm_result = supabase.table("oauth_state").select("state").eq("state", state).execute()
-        if confirm_result.data:
-            break
-        time.sleep(1.5)
-    else:
-        raise HTTPException(status_code=500, detail="Failed to store OAuth state after multiple attempts.")
-
+    time.sleep(6)
 
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
@@ -127,6 +118,7 @@ def github_callback(request: Request):
             "state":state
         },
     )
+    supabase.table("oauth_state").delete().eq("state", state).execute()
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"   # 최종 리디렉션 주소 (CustomGPT로 돌아가는 주소)
     return RedirectResponse(redirect_url)
 
