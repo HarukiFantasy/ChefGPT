@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 import requests
-import os, uuid
+import os, secrets
 from supabase import create_client
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
@@ -78,7 +78,7 @@ def root():
 @app.get("/auth")
 def github_login(state: str = None):
     if state is None:
-        state = str(uuid.uuid4())  # ✅ state 자동 생성
+        state = secrets.token_urlsafe(16)  # state 자동 생성
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
