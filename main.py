@@ -26,6 +26,7 @@ OpenAI_redirectURI = os.getenv("OPENAI_REDIRECT_URI")
 
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+Render_URL = "https://chefgpt-bdfc.onrender.com"
 
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index_name = "recipes"
@@ -36,7 +37,7 @@ app = FastAPI(
     title="ChefGPT. The best provider of Indian Recipes in the world",
     description="Give ChefGPT the name of an ingredient and it will give you multiple recipes to use that ingredient on in return.",
     servers=[
-        {"url": "https://chefgpt-bdfc.onrender.com"}
+        {"url": Render_URL}
     ]
 )
 
@@ -85,19 +86,50 @@ def github_login(state: str):
     })
 
 
+# @app.get("/auth/callback")
+# def github_callback(request: Request):
+#     code = request.query_params.get("code")
+#     state = request.query_params.get("state")
+#     if not code:
+#         return {"error": "No code provided"}
+#     if not state:
+#         return {"error": "State parameter missing"}
+
+#     # CustomGPT로 리디렉션
+#     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
+#     return RedirectResponse(redirect_url)
+
+
 @app.get("/auth/callback")
 def github_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     if not code:
         return {"error": "No code provided"}
-    if not state:
-        return {"error": "State parameter missing"}
 
-    # CustomGPT로 리디렉션
+    token_response = requests.post(
+        "https://github.com/login/oauth/access_token",
+        headers={"Accept": "application/json"},
+        json={
+            "client_id": GITHUB_CLIENT_ID,
+            "client_secret": GITHUB_CLIENT_SECRET,
+            "code": code,
+            "redirect_uri": f"{Render_URL}/auth/callback",
+        },
+    )
+
+    token_data = token_response.json()
+    access_token = token_data.get("access_token")
+    # 2. 유저 정보 요청
+    user_response = requests.get(
+        "https://api.github.com/user",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    user_data = user_response.json()
+    github_user = user_data.get('login')
+    # 3. CustomGPT로 리디렉션
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
     return RedirectResponse(redirect_url)
-
 
 
 # OAuth 토큰 요청 처리
