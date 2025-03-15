@@ -112,39 +112,49 @@ async def handle_oauth_token(
     }
 
     response = requests.post(token_url, headers=headers, data=payload)
-
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to get access token from GitHub")
-
     token_data = response.json()
     access_token = token_data.get("access_token")
 
     if not access_token:
         raise HTTPException(status_code=400, detail="GitHub access token not provided.")
 
+
     # GitHub 사용자 정보 가져오기
     user_response = requests.get(
         "https://api.github.com/user",
         headers={"Authorization": f"Bearer {access_token}"}
     )
-    if user_response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to fetch user info from GitHub")
-
     user_data = user_response.json()
     github_id = str(user_data.get("id"))
     email = user_data.get("email") or "no-email@example.com"
     name = user_data.get("login") or "No Name"
 
-    # Supabase 사용자 저장
-    existing_user = supabase.table("users").select("*").eq("github_id", github_id).execute()
-    if not existing_user.data:
-        supabase.table("users").insert({
-            "github_id": github_id,
-            "email": email,
-            "name": name
-        }).execute()
+    # Supabase에 사용자 정보 삽입 (직접 API 호출)
+    supabase_headers = {
+        "Authorization": f"Bearer {access_token}",  # GitHub access_token 사용
+        "apikey": SUPABASE_ANON_KEY,               # Supabase anon key
+        "Content-Type": "application/json"
+    }
 
-    # CustomGPT로 넘길 토큰 반환
+    supabase_payload = {
+        "github_id": github_id,
+        "email": email,
+        "name": name
+    }
+
+    supabase_insert_url = f"{SUPABASE_URL}/rest/v1/users"
+
+    supabase_response = requests.post(
+        supabase_insert_url,
+        headers=supabase_headers,
+        json=supabase_payload
+    )
+
+    # Supabase 삽입 실패 시 에러 반환
+    if supabase_response.status_code != 201:
+        raise HTTPException(status_code=supabase_response.status_code, detail=supabase_response.json())
+    
+    # 삽입 성공시 CustomGPT로 넘길 토큰 반환
     return JSONResponse(content={
         "access_token": access_token,
         "github_id": github_id,
