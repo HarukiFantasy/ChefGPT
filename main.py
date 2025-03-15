@@ -76,7 +76,7 @@ def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
 @app.get("/auth")
-def github_login(state: str):
+def github_login(state: str="custom-fixed-state"):
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
@@ -87,9 +87,11 @@ def github_login(state: str):
 
 
 @app.get("/auth/callback")
-def github_callback(request: Request):
+def github_callback(request: Request, state: str="custom-fixed-state"):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
+    if state != "custom-fixed-state":
+        return {"error": "Invalid state"}  # 직접 고정값 비교
     if not code:
         return {"error": "No code provided"}
 
