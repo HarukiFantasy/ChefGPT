@@ -1,0 +1,36 @@
+# Python 관련 캐시 및 환경
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+
+# 가상환경 폴더
+.venv/
+venv/
+env/
+
+# 운영체제/IDE 설정
+.DS_Store
+.vscode/
+.idea/
+
+# 환경 변수 및 민감 정보
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# 로그 파일
+*.log
+
+# Docker 관련
+Dockerfile
+docker-compose.yml
+
+# Test 파일/폴더 (선택적, 테스트 코드 분리할 경우)
+tests/
+test_*.py
