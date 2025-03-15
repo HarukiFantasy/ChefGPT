@@ -183,13 +183,23 @@ def save_recipe(request: RecipeSaveRequest, authorization: HTTPAuthorizationCred
     if user_info_resp.status_code != 200:
         raise HTTPException(status_code=403, detail="Invalid GitHub token")
     github_id = user_info_resp.json()["id"]
+
+    # users 테이블에서 UUID 조회
+    user_record = supabase.table("users").select("id").eq("github_id", str(github_id)).execute()
+    if not user_record.data:
+        raise HTTPException(status_code=404, detail="User not found in Supabase")
+
+    user_uuid = user_record.data[0]["id"]
+
+    # 레시피 저장
     supabase.table("favorite_recipes").insert({
-        "user_id": github_id,
+        "user_id": user_uuid,
         "recipe_id": request.recipe_id,
         "recipe_name": request.recipe_name,
         "recipe_detail": request.recipe_detail
     }).execute()
     return {"message": "Recipe saved successfully."}
+
 
 @app.get("/recipes/favorites", response_model=list[FavoriteRecipe])
 def get_favorite_recipes(authorization: HTTPAuthorizationCredentials = Security(bearer_scheme)):
