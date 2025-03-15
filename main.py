@@ -67,13 +67,59 @@ class User(BaseModel):
     email: str
     name: str
 
-# ==============================
-# API 엔드포인트
-# ==============================
-
+# ----------------------
+# 기본 엔드포인트
+# ----------------------
 @app.get("/", response_class=JSONResponse)
 def root():
     return {"message": "Welcome to the Cooking recipes API!"}
+
+# ----------------------
+# GitHub OAuth
+# ----------------------
+@app.get("/auth")
+def github_login(state: str):
+    """사용자를 GitHub OAuth 인증 페이지로 리디렉션"""
+    github_auth_url = (
+        f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
+    )
+    return RedirectResponse(github_auth_url)
+
+@app.get("/auth/callback")
+def github_callback(request: Request):
+    code = request.query_params.get("code")
+    state = request.query_params.get("state")
+    redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
+    return RedirectResponse(redirect_url)
+
+# OAuth 토큰 요청 처리
+@app.post("/token", include_in_schema=False,)
+async def handle_oauth_token(code: str = Form(...)):
+    token_url = "https://github.com/login/oauth/access_token"
+    headers = {"Accept": "application/json"}
+    payload = {
+        "client_id": GITHUB_CLIENT_ID,
+        "client_secret": GITHUB_CLIENT_SECRET,
+        "code": code,
+        "redirect_uri": OpenAI_redirectURI
+    }
+    response = requests.post(token_url, headers=headers, data=payload)
+    data = response.json()
+
+    # GitHub 사용자 정보 가져오기
+    access_token = data.get("access_token")
+    user_response = requests.get(
+        "https://api.github.com/user",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    user_data = user_response.json()
+    print("GitHub User Data:", user_data)
+    return {
+        "access_token": access_token,
+        "login": user_data.get("login"),
+        "email": user_data.get("email")
+    }
+
 
 @app.get("/auth")
 def github_login(state: str):
