@@ -120,16 +120,6 @@ def github_callback(request: Request):
             "state":state
         },
     )
-
-    token_data = token_response.json()
-    access_token = token_data.get("access_token")
-    # 3. 유저 정보 요청
-    user_response = requests.get(
-        "https://api.github.com/user",
-        headers={"Authorization": f"Bearer {access_token}"},
-    )
-
-    # 3. CustomGPT로 리디렉션
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"   # 최종 리디렉션 주소 (CustomGPT로 돌아가는 주소)
     return RedirectResponse(redirect_url)
 
@@ -149,11 +139,9 @@ async def handle_oauth_token(
         "code": code,
         "redirect_uri": OpenAI_redirectURI
     }
-
     response = requests.post(token_url, headers=headers, data=payload)
     token_data = response.json()
     access_token = token_data.get("access_token")
-
     if not access_token:
         raise HTTPException(status_code=400, detail="GitHub access token not provided.")
 
