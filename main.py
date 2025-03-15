@@ -76,7 +76,7 @@ def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
 @app.get("/auth")
-def github_login(state: str):
+def github_login(state: str = None):
     if state is None:
         state = str(uuid.uuid4())  # ✅ state 자동 생성
     github_auth_url = (
@@ -94,6 +94,8 @@ def github_callback(request: Request):
     state = request.query_params.get("state")
     if not code:
         return {"error": "No code provided"}
+    if not state:
+        return {"error": "State parameter missing"}
     # CustomGPT로 리디렉션
     redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
     return RedirectResponse(redirect_url)
