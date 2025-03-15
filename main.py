@@ -78,7 +78,7 @@ def root():
 @app.get("/auth")
 def github_login(state: str = None):
     state = secrets.token_urlsafe(16)  # state 자동 생성
-    supabase.table("oauth_state").insert({"state": state}).excute()
+    supabase.table("oauth_state").insert({"state": state}).execute()
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
