@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 import requests
-import os, secrets, redis
+import os, secrets
 from supabase import create_client
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
@@ -19,8 +19,6 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-redis_client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
 
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET") 
@@ -77,10 +75,12 @@ class User(BaseModel):
 def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
+oauth_states = {}
+
 @app.get("/auth")
 def github_login(state: str = None):
     state = secrets.token_urlsafe(16)  # state 자동 생성
-    redis_client.setex(state, 300, "valid")
+    oauth_states[state] = True
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
@@ -93,18 +93,15 @@ def github_login(state: str = None):
 @app.get("/auth/callback")
 def github_callback(request: Request):
     code = request.query_params.get("code")
-    state_received = request.query_params.get("state")
+    state = request.query_params.get("state")
     if not code:
         return {"error": "No code provided"}
-    if not state_received:
+    if not state:
         return {"error": "State parameter missing"}
-    if redis_client.get(state_received) != "valid":
-        return {"error": "Invalid or expired state"}
-    # state가 유효하면 삭제 (재사용 방지)
-    redis_client.delete(state_received)
+    del oauth_states[state]  
 
     # CustomGPT로 리디렉션
-    redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state_received}"
+    redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
     return RedirectResponse(redirect_url)
 
 
