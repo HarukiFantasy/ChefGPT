@@ -76,7 +76,9 @@ def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
 @app.get("/auth")
-def github_login(state: str):
+def github_login(state: str=None):
+    if state is None:
+        state = str(uuid.uuid4())
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
