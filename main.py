@@ -77,10 +77,15 @@ def root():
 
 @app.get("/auth")
 def github_login(state: str):
+    if state is None:
+        state = str(uuid.uuid4())  # ✅ state 자동 생성
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
-    return RedirectResponse(github_auth_url)
+    return JSONResponse({
+        "message": "Click the button below to log in with GitHub.",
+        "login_url": github_auth_url
+    })
 
 
 @app.get("/auth/callback")
