@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 import requests, os
+from uuid import uuid4
 from supabase import create_client
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Pinecone as PineconeVectorStore
@@ -76,7 +77,19 @@ def root():
     return {"message": "Welcome to the Cooking recipes API!"}
 
 @app.get("/auth")
-def github_login(state: str="custom-fixed-state"):
+def github_login(state: str):
+    if not state:
+        state = str(uuid4())
+
+    # 1. State 삽입
+    insert_result = supabase.table("oauth_state").insert({"state": state}).execute()
+
+    # 2. 삽입 직후 확인 (딜레이 대응)
+    confirm_result = supabase.table("oauth_state").select("state").eq("state", state).execute()
+    if not confirm_result.data:
+        raise HTTPException(status_code=500, detail="Failed to store OAuth state.")
+
+
     github_auth_url = (
         f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={OpenAI_redirectURI}&scope=read:user&state={state}"
     )
@@ -87,14 +100,18 @@ def github_login(state: str="custom-fixed-state"):
 
 
 @app.get("/auth/callback")
-def github_callback(request: Request, state: str="custom-fixed-state"):
+def github_callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
-    if state != "custom-fixed-state":
-        return {"error": "Invalid state"}  # 직접 고정값 비교
     if not code:
         return {"error": "No code provided"}
 
+    # 1. Supabase에서 state 검증
+    state_check = supabase.table("oauth_state").select("state").eq("state", state).execute()
+    if not state_check.data:
+        raise HTTPException(status_code=400, detail="Invalid state or expired")
+
+    # 2. GitHub Access Token 요청
     token_response = requests.post(
         "https://github.com/login/oauth/access_token",
         headers={"Accept": "application/json"},
@@ -102,22 +119,21 @@ def github_callback(request: Request, state: str="custom-fixed-state"):
             "client_id": GITHUB_CLIENT_ID,
             "client_secret": GITHUB_CLIENT_SECRET,
             "code": code,
-            "redirect_uri": f"{Render_URL}/auth/callback",
+            "redirect_uri": f"{Render_URL}/auth/callback", # OAuth redirect URI (서버가 받아야 할 주소)
             "state":state
         },
     )
 
     token_data = token_response.json()
     access_token = token_data.get("access_token")
-    # 2. 유저 정보 요청
+    # 3. 유저 정보 요청
     user_response = requests.get(
         "https://api.github.com/user",
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    user_data = user_response.json()
-    github_user = user_data.get('login')
+
     # 3. CustomGPT로 리디렉션
-    redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"
+    redirect_url = f"{OpenAI_redirectURI}?code={code}&state={state}"   # 최종 리디렉션 주소 (CustomGPT로 돌아가는 주소)
     return RedirectResponse(redirect_url)
 
 
