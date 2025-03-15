@@ -144,12 +144,12 @@ async def handle_oauth_token(
         }).execute()
 
     # CustomGPT로 넘길 토큰 반환
-    return {
+    return JSONResponse(content={
         "access_token": access_token,
         "github_id": github_id,
         "email": email,
         "name": name
-    }
+    })
 
 
 @app.get("/recipes", response_model=list[Document])
